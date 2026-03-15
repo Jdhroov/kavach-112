@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KAVACH 112 — Operator Panel</title>
+  <script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
+  <style>
+    /* ── Reset & base ─────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #080b10;
+      --surface:   #0f1520;
+      --border:    #1e2d45;
+      --accent:    #e8303a;
+      --amber:     #f59e0b;
+      --green:     #22c55e;
+      --blue:      #3b82f6;
+      --text:      #e2e8f0;
+      --muted:     #64748b;
+      --police:    #3b82f6;
+      --fire:      #ef4444;
+      --medical:   #22c55e;
+      --disaster:  #f59e0b;
+      --font: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    }
+
+    html, body { height: 100%; background: var(--bg); color: var(--text);
+                 font-family: var(--font); font-size: 13px; overflow: hidden; }
+
+    /* ── Layout ───────────────────────────────────────────────── */
+    .shell {
+      display: grid;
+      grid-template-rows: 52px 1fr;
+      height: 100vh;
+    }
+
+    /* ── Top bar ──────────────────────────────────────────────── */
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 20px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .topbar-left { display: flex; align-items: center; gap: 12px; }
+
+    .logo {
+      font-size: 18px; font-weight: 700; letter-spacing: 2px;
+      color: var(--accent);
+    }
+    .logo span { color: var(--text); }
+
+    .badge-112 {
+      background: var(--accent); color: #fff;
+      padding: 2px 8px; border-radius: 4px;
+      font-size: 11px; font-weight: 700; letter-spacing: 1px;
+    }
+
+    .topbar-right { display: flex; align-items: center; gap: 16px; }
+
+    .live-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--muted);
+      box-shadow: 0 0 0 0 rgba(100,116,139,0);
+      transition: background .3s;
+    }
+    .live-dot.active {
+      background: var(--green);
+      animation: pulse-green 1.5s infinite;
+    }
+    @keyframes pulse-green {
+      0%   { box-shadow: 0 0 0 0 rgba(34,197,94,.6); }
+      70%  { box-shadow: 0 0 0 8px rgba(34,197,94,0); }
+      100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+    }
+
+    .conn-label { color: var(--muted); font-size: 11px; letter-spacing: 1px; }
+    .conn-label.active { color: var(--green); }
+
+    .case-id { color: var(--muted); font-size: 11px; }
+    .case-id span { color: var(--amber); }
+
+    /* ── Main grid ────────────────────────────────────────────── */
+    .main {
+      display: grid;
+      grid-template-columns: 240px 1fr 280px;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    /* ── Panels ───────────────────────────────────────────────── */
+    .panel {
+      padding: 16px;
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      display: flex; flex-direction: column; gap: 16px;
+    }
+    .panel:last-child { border-right: none; }
+
+    .panel-title {
+      font-size: 10px; font-weight: 700; letter-spacing: 2px;
+      color: var(--muted); text-transform: uppercase;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* ── SPEAK button ─────────────────────────────────────────── */
+    .speak-wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+
+    .speak-btn {
+      width: 100px; height: 100px; border-radius: 50%;
+      border: 2px solid var(--accent);
+      background: transparent;
+      cursor: pointer;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 6px;
+      color: var(--text);
+      font-family: var(--font); font-size: 11px; letter-spacing: 1px;
+      transition: all .2s;
+      position: relative;
+    }
+    .speak-btn:hover { background: rgba(232,48,58,.1); border-color: #ff4d57; }
+    .speak-btn.listening {
+      background: rgba(232,48,58,.2);
+      border-color: var(--accent);
+      animation: pulse-red 1s infinite;
+    }
+    .speak-btn.listening .mic-icon { color: var(--accent); }
+
+    @keyframes pulse-red {
+      0%   { box-shadow: 0 0 0 0 rgba(232,48,58,.5); }
+      70%  { box-shadow: 0 0 0 16px rgba(232,48,58,0); }
+      100% { box-shadow: 0 0 0 0 rgba(232,48,58,0); }
+    }
+
+    .mic-icon { font-size: 28px; line-height: 1; }
+
+    .speak-status {
+      font-size: 11px; color: var(--muted); text-align: center;
+      letter-spacing: .5px;
+    }
+    .speak-status.active { color: var(--accent); }
+
+    /* ── Info cards ───────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+    }
+
+    .card-label {
+      font-size: 10px; color: var(--muted); letter-spacing: 1px;
+      text-transform: uppercase; margin-bottom: 6px;
+    }
+
+    .card-value {
+      font-size: 14px; font-weight: 600; color: var(--text);
+    }
+
+    /* ── Language card ────────────────────────────────────────── */
+    .lang-flag { font-size: 22px; }
+    .lang-name { font-size: 15px; font-weight: 700; }
+    .lang-code { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    /* ── Emergency type badge ─────────────────────────────────── */
+    .etype-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 6px 12px; border-radius: 6px;
+      font-size: 13px; font-weight: 700;
+      border: 1px solid transparent;
+    }
+    .etype-badge.POLICE   { background: rgba(59,130,246,.15); border-color: var(--police); color: var(--police); }
+    .etype-badge.FIRE     { background: rgba(239,68,68,.15);  border-color: var(--fire);   color: var(--fire);   }
+    .etype-badge.MEDICAL  { background: rgba(34,197,94,.15);  border-color: var(--medical);color: var(--medical);}
+    .etype-badge.DISASTER { background: rgba(245,158,11,.15); border-color: var(--amber);  color: var(--amber);  }
+    .etype-badge.UNKNOWN  { background: rgba(100,116,139,.1); border-color: var(--muted);  color: var(--muted);  }
+
+    /* ── Severity bar ─────────────────────────────────────────── */
+    .sev-bar-wrap { margin-top: 4px; }
+    .sev-bar-bg {
+      height: 6px; background: var(--border); border-radius: 3px; overflow: hidden;
+    }
+    .sev-bar-fill {
+      height: 100%; border-radius: 3px; width: 0%;
+      transition: width .5s ease, background .3s;
+    }
+    .sev-bar-fill.HIGH   { width: 100%; background: var(--fire); }
+    .sev-bar-fill.MEDIUM { width: 60%;  background: var(--amber); }
+    .sev-bar-fill.LOW    { width: 25%;  background: var(--green); }
+    .sev-label { font-size: 11px; margin-top: 4px; color: var(--muted); }
+    .sev-label.HIGH   { color: var(--fire);   }
+    .sev-label.MEDIUM { color: var(--amber);  }
+    .sev-label.LOW    { color: var(--green);  }
+
+    /* ── Transcript ───────────────────────────────────────────── */
+    .transcript-panel {
+      display: flex; flex-direction: column;
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      overflow: hidden;
+    }
+    .transcript-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      font-size: 10px; font-weight: 700; letter-spacing: 2px;
+      color: var(--muted); text-transform: uppercase;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .transcript-feed {
+      flex: 1; overflow-y: auto; padding: 12px 16px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .transcript-feed::-webkit-scrollbar { width: 4px; }
+    .transcript-feed::-webkit-scrollbar-track { background: transparent; }
+    .transcript-feed::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .t-line { display: flex; flex-direction: column; gap: 2px; }
+    .t-speaker {
+      font-size: 10px; font-weight: 700; letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .t-speaker.caller  { color: var(--amber); }
+    .t-speaker.kavach  { color: var(--accent); }
+    .t-text {
+      font-size: 13px; color: var(--text); line-height: 1.5;
+      padding: 6px 10px;
+      border-radius: 6px;
+      border-left: 2px solid transparent;
+    }
+    .t-text.caller  { background: rgba(245,158,11,.06); border-color: var(--amber); }
+    .t-text.kavach  { background: rgba(232,48,58,.06);  border-color: var(--accent); }
+    .t-time { font-size: 10px; color: var(--muted); }
+
+    .kavach-speaking {
+      display: flex; align-items: center; gap: 6px;
+      padding: 4px 10px;
+      color: var(--accent); font-size: 11px;
+    }
+    .wave { display: flex; gap: 2px; align-items: flex-end; height: 12px; }
+    .wave span {
+      width: 2px; background: var(--accent); border-radius: 1px;
+      animation: wave-anim 1s ease-in-out infinite;
+    }
+    .wave span:nth-child(2) { animation-delay: .1s; }
+    .wave span:nth-child(3) { animation-delay: .2s; }
+    .wave span:nth-child(4) { animation-delay: .3s; }
+    @keyframes wave-anim {
+      0%, 100% { height: 3px; }
+      50%       { height: 12px; }
+    }
+
+    .empty-transcript {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 8px;
+      color: var(--muted); font-size: 12px;
+    }
+    .empty-transcript .big { font-size: 32px; opacity: .3; }
+
+    /* ── Right panel — dispatch ───────────────────────────────── */
+    .dispatch-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    }
+
+    .dispatch-tile {
+      border: 1px solid var(--border);
+      border-radius: 8px; padding: 12px 10px;
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+      transition: all .3s;
+      opacity: .4;
+    }
+    .dispatch-tile.active { opacity: 1; }
+    .dispatch-tile.active.POLICE  { border-color: var(--police); background: rgba(59,130,246,.1); }
+    .dispatch-tile.active.FIRE    { border-color: var(--fire);   background: rgba(239,68,68,.1);  animation: alert-pulse .8s ease-in-out 3; }
+    .dispatch-tile.active.MEDICAL { border-color: var(--medical);background: rgba(34,197,94,.1);  }
+    .dispatch-tile.active.DISASTER{ border-color: var(--amber);  background: rgba(245,158,11,.1); }
+
+    @keyframes alert-pulse {
+      0%, 100% { transform: scale(1); }
+      50%       { transform: scale(1.03); }
+    }
+
+    .dispatch-icon { font-size: 24px; }
+    .dispatch-name {
+      font-size: 10px; font-weight: 700; letter-spacing: 1px;
+      text-transform: uppercase; color: var(--muted);
+    }
+    .dispatch-tile.active.POLICE   .dispatch-name { color: var(--police);  }
+    .dispatch-tile.active.FIRE     .dispatch-name { color: var(--fire);    }
+    .dispatch-tile.active.MEDICAL  .dispatch-name { color: var(--medical); }
+    .dispatch-tile.active.DISASTER .dispatch-name { color: var(--amber);   }
+
+    .dispatch-status {
+      font-size: 9px; letter-spacing: .5px; color: var(--muted);
+    }
+    .dispatch-tile.active .dispatch-status { color: inherit; }
+
+    /* ── Location ─────────────────────────────────────────────── */
+    .location-val {
+      font-size: 13px; color: var(--text); line-height: 1.5;
+      min-height: 20px;
+    }
+    .location-val:empty::after {
+      content: "Extracting…"; color: var(--muted); font-size: 11px;
+    }
+
+    /* ── Scrollbar global ─────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ── Top bar ──────────────────────────────────────────────── -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <span class="logo">KAVACH<span> 112</span></span>
+      <span class="badge-112">EMERGENCY OPS</span>
+    </div>
+    <div class="topbar-right">
+      <div class="live-dot" id="liveDot"></div>
+      <span class="conn-label" id="connLabel">DISCONNECTED</span>
+      <span class="case-id">CASE: <span id="caseId">—</span></span>
+    </div>
+  </header>
+
+  <!-- ── Main grid ────────────────────────────────────────────── -->
+  <div class="main">
+
+    <!-- LEFT: Call control ──────────────────────────────────── -->
+    <aside class="panel">
+      <div class="panel-title">Call Control</div>
+
+      <!-- SPEAK button -->
+      <div class="speak-wrap">
+        <button class="speak-btn" id="speakBtn" onclick="toggleCall()">
+          <span class="mic-icon">🎙</span>
+          <span id="speakLabel">SPEAK</span>
+        </button>
+        <div class="speak-status" id="speakStatus">
+          Click to connect &amp; speak with KAVACH
+        </div>
+      </div>
+
+      <!-- Language -->
+      <div class="card">
+        <div class="card-label">Detected Language</div>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
+          <span class="lang-flag" id="langFlag">🌐</span>
+          <div>
+            <div class="lang-name" id="langName">—</div>
+            <div class="lang-code" id="langCode">awaiting caller…</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Emergency type -->
+      <div class="card">
+        <div class="card-label">Emergency Type</div>
+        <div style="margin-top:6px">
+          <span class="etype-badge UNKNOWN" id="etypeBadge">— UNKNOWN</span>
+        </div>
+      </div>
+
+      <!-- Severity -->
+      <div class="card">
+        <div class="card-label">Severity</div>
+        <div class="sev-bar-wrap">
+          <div class="sev-bar-bg"><div class="sev-bar-fill" id="sevBar"></div></div>
+          <div class="sev-label" id="sevLabel">—</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- CENTRE: Transcript ─────────────────────────────────── -->
+    <section class="transcript-panel">
+      <div class="transcript-header">
+        <span>Live Transcript</span>
+        <div id="kavachSpeaking" style="display:none">
+          <div class="kavach-speaking">
+            <div class="wave">
+              <span></span><span></span><span></span><span></span>
+            </div>
+            KAVACH speaking…
+          </div>
+        </div>
+      </div>
+      <div class="transcript-feed" id="transcriptFeed">
+        <div class="empty-transcript" id="emptyMsg">
+          <span class="big">🛡</span>
+          <span>Waiting for call…</span>
+          <span style="font-size:11px">Click SPEAK to begin</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT: Dispatch status ─────────────────────────────── -->
+    <aside class="panel">
+      <div class="panel-title">Dispatch Status</div>
+
+      <div class="dispatch-grid">
+        <div class="dispatch-tile POLICE" id="tile-POLICE">
+          <span class="dispatch-icon">🚔</span>
+          <span class="dispatch-name">Police</span>
+          <span class="dispatch-status">STANDBY</span>
+        </div>
+        <div class="dispatch-tile FIRE" id="tile-FIRE">
+          <span class="dispatch-icon">🚒</span>
+          <span class="dispatch-name">Fire</span>
+          <span class="dispatch-status">STANDBY</span>
+        </div>
+        <div class="dispatch-tile MEDICAL" id="tile-MEDICAL">
+          <span class="dispatch-icon">🚑</span>
+          <span class="dispatch-name">Medical</span>
+          <span class="dispatch-status">STANDBY</span>
+        </div>
+        <div class="dispatch-tile DISASTER" id="tile-DISASTER">
+          <span class="dispatch-icon">🌊</span>
+          <span class="dispatch-name">Disaster</span>
+          <span class="dispatch-status">STANDBY</span>
+        </div>
+      </div>
+
+      <!-- Location -->
+      <div class="card">
+        <div class="card-label">Extracted Location</div>
+        <div class="location-val" id="locationVal"></div>
+      </div>
+
+      <!-- Agent info -->
+      <div class="card">
+        <div class="card-label">Agent</div>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <div class="card-value">KAVACH</div>
+          <div style="font-size:11px;color:var(--muted)">
+            saaras:v3 · bulbul:v3 · GPT-4o
+          </div>
+        </div>
+      </div>
+
+      <!-- Reset -->
+      <button onclick="resetPanel()" style="
+        background:transparent; border:1px solid var(--border);
+        color:var(--muted); padding:8px; border-radius:6px;
+        cursor:pointer; font-family:var(--font); font-size:11px;
+        letter-spacing:1px; text-transform:uppercase;
+        margin-top:auto;
+      ">Reset Panel</button>
+    </aside>
+
+  </div><!-- /main -->
+</div><!-- /shell -->
+
+<!-- Pre-created audio element — avoids Chrome autoplay blocking on dynamic elements -->
+<audio id="agentAudio" autoplay playsinline style="display:none"></audio>
+
+<!-- Shown only if browser blocks autoplay -->
+<div id="unmuteBar" style="
+  display:none; position:fixed; bottom:16px; left:50%; transform:translateX(-50%);
+  background:#1e2d45; border:1px solid #e8303a; border-radius:8px;
+  padding:10px 20px; gap:12px; align-items:center; z-index:999;
+  font-family:var(--font); font-size:12px; color:#e2e8f0;
+">
+  🔇 Audio blocked by browser —
+  <button onclick="document.getElementById('unmuteBar').style.display='none'; room && room.startAudio();" style="
+    background:#e8303a; border:none; color:#fff; padding:4px 12px;
+    border-radius:4px; cursor:pointer; font-family:var(--font); font-size:11px;
+  ">ENABLE AUDIO</button>
+</div>
+
+<script>
+/* ── LiveKit client ─────────────────────────────────────────────── */
+const { Room, RoomEvent, Track } = LivekitClient;
+
+let room     = null;
+let calling  = false;
+
+/* ── Language display map ───────────────────────────────────────── */
+const LANG_META = {
+  "hi-IN": { flag: "🇮🇳", name: "Hindi",    sub: "हिन्दी" },
+  "ta-IN": { flag: "🇮🇳", name: "Tamil",    sub: "தமிழ்" },
+  "te-IN": { flag: "🇮🇳", name: "Telugu",   sub: "తెలుగు" },
+  "bn-IN": { flag: "🇮🇳", name: "Bengali",  sub: "বাংলা" },
+  "mr-IN": { flag: "🇮🇳", name: "Marathi",  sub: "मराठी" },
+  "kn-IN": { flag: "🇮🇳", name: "Kannada",  sub: "ಕನ್ನಡ" },
+  "gu-IN": { flag: "🇮🇳", name: "Gujarati", sub: "ગુજરાતી" },
+  "ml-IN": { flag: "🇮🇳", name: "Malayalam",sub: "മലയാളം" },
+  "pa-IN": { flag: "🇮🇳", name: "Punjabi",  sub: "ਪੰਜਾਬੀ" },
+  "od-IN": { flag: "🇮🇳", name: "Odia",     sub: "ଓଡ଼ିଆ" },
+  "en-IN": { flag: "🇮🇳", name: "English",  sub: "Hinglish / EN" },
+  "unknown":{ flag: "🌐", name: "Detecting…",sub: "" },
+};
+
+const ETYPE_EMOJI = {
+  POLICE: "🚔", FIRE: "🔥", MEDICAL: "🩺", DISASTER: "🌊", UNKNOWN: "❓"
+};
+
+/* ── Connect / disconnect ───────────────────────────────────────── */
+async function toggleCall() {
+  if (calling) { await endCall(); }
+  else          { await startCall(); }
+}
+
+async function startCall() {
+  const btn = document.getElementById("speakBtn");
+  const status = document.getElementById("speakStatus");
+  status.textContent = "Connecting…";
+
+  try {
+    const res  = await fetch("/token");
+    const data = await res.json();
+
+    room = new Room({ adaptiveStream: true, dynacast: false });
+
+    room.on(RoomEvent.Connected, () => {
+      calling = true;
+      setConnected(true);
+      status.textContent = "Connected — speak now";
+      status.className = "speak-status active";
+      btn.classList.add("listening");
+      document.getElementById("speakLabel").textContent = "SPEAKING";
+      clearEmptyMsg();
+    });
+
+    room.on(RoomEvent.Disconnected, () => {
+      calling = false;
+      setConnected(false);
+      btn.classList.remove("listening");
+      document.getElementById("speakLabel").textContent = "SPEAK";
+      status.textContent = "Disconnected";
+      status.className = "speak-status";
+    });
+
+    /* Receive state updates from KAVACH agent */
+    room.on(RoomEvent.DataReceived, (payload) => {
+      try {
+        const msg = JSON.parse(new TextDecoder().decode(payload));
+        if (msg.type === "state")      handleState(msg);
+        if (msg.type === "transcript") handleTranscript(msg);
+      } catch(e) { console.warn("Bad data msg:", e); }
+    });
+
+    /* Play agent audio — attach to pre-existing element to satisfy autoplay policy */
+    room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
+      if (track.kind === Track.Kind.Audio) {
+        const audioEl = document.getElementById("agentAudio");
+        track.attach(audioEl);
+        // Resume audio context after user gesture (required by Chrome)
+        audioEl.play().catch(() => {
+          // If blocked, show unmute button
+          document.getElementById("unmuteBar").style.display = "flex";
+        });
+      }
+    });
+
+    room.on(RoomEvent.AudioPlaybackStatusChanged, () => {
+      if (!room.canPlaybackAudio) {
+        document.getElementById("unmuteBar").style.display = "flex";
+      }
+    });
+
+    /* Receive agent transcription events (what KAVACH says) */
+    room.on(RoomEvent.TranscriptionReceived, (segments, participant) => {
+      if (!participant || participant.isLocal) return;
+      segments.forEach(seg => {
+        if (seg.final && seg.text.trim()) {
+          handleTranscript({ speaker: "kavach", text: seg.text.trim() });
+        }
+      });
+    });
+
+    /* Connect and publish microphone */
+    await room.connect(data.url, data.token);
+    // Start audio context within the user gesture to avoid autoplay block
+    await room.startAudio();
+    await room.localParticipant.setMicrophoneEnabled(true);
+
+  } catch(err) {
+    console.error(err);
+    status.textContent = "Connection failed — check console";
+    status.className = "speak-status";
+  }
+}
+
+async function endCall() {
+  if (room) {
+    await room.localParticipant.setMicrophoneEnabled(false);
+    await room.disconnect();
+    room = null;
+  }
+}
+
+/* ── UI: connected state ────────────────────────────────────────── */
+function setConnected(on) {
+  document.getElementById("liveDot").className   = on ? "live-dot active" : "live-dot";
+  document.getElementById("connLabel").textContent = on ? "LIVE" : "DISCONNECTED";
+  document.getElementById("connLabel").className  = on ? "conn-label active" : "conn-label";
+}
+
+/* ── Handle state message ───────────────────────────────────────── */
+function handleState(s) {
+  /* Case ID */
+  document.getElementById("caseId").textContent = s.case_id || "—";
+
+  /* Language */
+  const meta = LANG_META[s.language_code] || LANG_META["unknown"];
+  document.getElementById("langFlag").textContent = meta.flag;
+  document.getElementById("langName").textContent = meta.name;
+  document.getElementById("langCode").textContent = meta.sub || s.language_code;
+
+  /* Emergency type */
+  const et    = s.emergency_type || "UNKNOWN";
+  const badge = document.getElementById("etypeBadge");
+  badge.className = `etype-badge ${et}`;
+  badge.textContent = (ETYPE_EMOJI[et] || "❓") + " " + et;
+
+  /* Severity */
+  const sev = s.severity && s.severity !== "—" ? s.severity : "";
+  const bar = document.getElementById("sevBar");
+  const lbl = document.getElementById("sevLabel");
+  bar.className = "sev-bar-fill " + sev;
+  lbl.className = "sev-label "    + sev;
+  lbl.textContent = sev || "—";
+
+  /* Location */
+  document.getElementById("locationVal").textContent = s.location || "";
+
+  /* Dispatch tiles */
+  const dispatched = s.dispatched || [];
+  ["POLICE","FIRE","MEDICAL","DISASTER"].forEach(svc => {
+    const tile = document.getElementById("tile-" + svc);
+    const stat = tile.querySelector(".dispatch-status");
+    if (dispatched.includes(svc)) {
+      tile.classList.add("active");
+      stat.textContent = "DISPATCHED";
+    }
+  });
+}
+
+/* ── Handle transcript message ──────────────────────────────────── */
+function handleTranscript(msg) {
+  clearEmptyMsg();
+  const feed = document.getElementById("transcriptFeed");
+
+  const now = new Date().toLocaleTimeString("en-IN", { hour12: false });
+
+  const line = document.createElement("div");
+  line.className = "t-line";
+  line.innerHTML = `
+    <div class="t-speaker ${msg.speaker}">${msg.speaker.toUpperCase()}</div>
+    <div class="t-text ${msg.speaker}">${escHtml(msg.text)}</div>
+    <div class="t-time">${now}</div>
+  `;
+  feed.appendChild(line);
+  feed.scrollTop = feed.scrollHeight;
+}
+
+/* ── Helpers ────────────────────────────────────────────────────── */
+function clearEmptyMsg() {
+  const em = document.getElementById("emptyMsg");
+  if (em) em.remove();
+}
+
+function escHtml(str) {
+  return str
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;");
+}
+
+function resetPanel() {
+  // Reset all display fields (does not disconnect)
+  document.getElementById("caseId").textContent    = "—";
+  document.getElementById("langFlag").textContent  = "🌐";
+  document.getElementById("langName").textContent  = "—";
+  document.getElementById("langCode").textContent  = "awaiting caller…";
+  document.getElementById("etypeBadge").className  = "etype-badge UNKNOWN";
+  document.getElementById("etypeBadge").textContent= "— UNKNOWN";
+  document.getElementById("sevBar").className      = "sev-bar-fill";
+  document.getElementById("sevLabel").textContent  = "—";
+  document.getElementById("locationVal").textContent = "";
+
+  ["POLICE","FIRE","MEDICAL","DISASTER"].forEach(svc => {
+    const tile = document.getElementById("tile-" + svc);
+    tile.classList.remove("active");
+    tile.querySelector(".dispatch-status").textContent = "STANDBY";
+  });
+
+  const feed = document.getElementById("transcriptFeed");
+  feed.innerHTML = `
+    <div class="empty-transcript" id="emptyMsg">
+      <span class="big">🛡</span>
+      <span>Waiting for call…</span>
+      <span style="font-size:11px">Click SPEAK to begin</span>
+    </div>`;
+}
+</script>
+</body>
+</html>
